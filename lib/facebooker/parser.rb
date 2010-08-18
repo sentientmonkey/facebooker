@@ -1,9 +1,9 @@
-require 'rexml/document'
 require 'facebooker/session'
 
 begin
-    require 'nokogiri'
+  require 'nokogiri'
 rescue Exception
+  require 'rexml/document'
 end
 
 module Facebooker
@@ -29,8 +29,10 @@ module Facebooker
       end
     end
 
-    ::REXML::Element.__send__(:include, REXMLElementExtensions)
-    ::REXML::Text.__send__(:include, REXMLTextExtensions)
+    if Object.const_defined?(:REXML) && REXML.const_defined?(:Element)
+      ::REXML::Element.__send__(:include, REXMLElementExtensions)
+      ::REXML::Text.__send__(:include, REXMLTextExtensions)
+    end
 
     def self.parse(method, data)
       Errors.process(data)
@@ -84,7 +86,12 @@ module Facebooker
       if element.children.size == 1 && element.children.first.text?
         element.content.strip
       else
-        hashinate(element)
+        # We can have lists in not list item
+        if element['list'] == 'true'
+          element.children.reject{|c| c.text? }.map { |subchild| hash_or_value_for(subchild)}
+        else
+          hashinate(element)
+        end
       end
     end
 
@@ -276,6 +283,12 @@ module Facebooker
   class StreamAddLike < Parser#:nodoc:
     def self.process(data)
       element('stream_addLike_response', data).content.strip
+    end
+  end  
+
+  class StreamRemoveLike < Parser#:nodoc:
+    def self.process(data)
+      booleanize(element('stream_removeLike_response', data).content.strip)
     end
   end  
 
@@ -564,7 +577,7 @@ module Facebooker
 
   class GetCookies < Parser#:nodoc:
     def self.process(data)
-      array_of_hashes(element('data_getCookie_response', data), 'cookies')
+      array_of_hashes(element('data_getCookies_response', data), 'cookies')
     end
   end
   
@@ -923,6 +936,7 @@ module Facebooker
       'facebook.stream.publish' => StreamPublish,
       'facebook.stream.addComment' => StreamAddComment,
       'facebook.stream.addLike' => StreamAddLike,
+      'facebook.stream.removeLike' => StreamRemoveLike,
       'facebook.events.create' => EventsCreate,
       'facebook.events.cancel' => EventsCancel,
       'facebook.events.get' => EventsGet,

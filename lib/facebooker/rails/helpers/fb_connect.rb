@@ -47,7 +47,8 @@ module Facebooker
              #{case options[:js]
                when :jquery then "jQuery(document).ready("
                when :dojo then "dojo.addOnLoad("
-               else "Element.observe(window,'load',"
+               when :mootools then "window.addEvent('domready',"
+               else "Event.observe(window,'load',"
                end} function() {
                 FB_RequireFeatures(#{required_features.to_json}, function() {
                   #{init_string}
